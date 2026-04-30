@@ -7,8 +7,10 @@
     "dev": "node --env-file=.env --import tsx src/index.ts",
     "build": "tsc",
     "start": "node --env-file=.env dist/index.js",
+    "start:prod": "node dist/index.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "pnpm build && node --env-file=.env dist/db/migrate.js",
+    "db:migrate:prod": "node dist/db/migrate.js",
     "db:migrate:runtime": "node dist/db/migrate.js",
     "db:seed": "node --env-file=.env --import tsx src/db/seed.ts"
   },

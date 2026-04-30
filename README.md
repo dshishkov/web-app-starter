@@ -385,13 +385,14 @@ docker build -f api/Dockerfile -t web-app-starter-api .
 - Set `BETTER_AUTH_URL` to your public web origin.
 - Set `ALLOWED_ORIGINS` to every trusted web origin, separated by commas.
 - Only enable `TRUST_PROXY_HEADERS=true` when the API is behind a trusted reverse proxy.
+- Start the deployed API with `pnpm --filter api start:prod` so the runtime uses platform-provided environment variables instead of a local `.env` file.
 - The production image includes the compiled runtime migrator and committed SQL migrations. The migrator only requires `DATABASE_URL`; run it as a one-off release/predeploy job before starting or promoting the API:
 
 ```bash
 docker run --rm \
   -e DATABASE_URL="$DATABASE_URL" \
   web-app-starter-api \
-  node api/dist/db/migrate.js
+  pnpm --filter api db:migrate:prod
 ```
 
 - Keep API startup separate from migration execution. The image default command only starts the server.
