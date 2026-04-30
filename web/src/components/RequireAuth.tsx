@@ -1,10 +1,19 @@
+import { useQuery } from '@tanstack/react-query'
 import { Navigate, Outlet } from 'react-router-dom'
 
 import { APP_ROUTES } from '../lib/app-config'
-import { useSession } from '../lib/auth-client'
+import { authClient } from '../lib/auth-client'
 
 export default function RequireAuth() {
-  const { data: session, isPending } = useSession()
+  const { data, isPending } = useQuery({
+    queryKey: ['session'],
+    queryFn: async () => {
+      const { data, error } = await authClient.getSession()
+      if (error) throw new Error(error.message, { cause: error })
+      return data
+    },
+    staleTime: 60_000,
+  })
 
   if (isPending) {
     return (
@@ -17,9 +26,6 @@ export default function RequireAuth() {
     )
   }
 
-  if (!session?.user) {
-    return <Navigate to={APP_ROUTES.home} replace />
-  }
-
+  if (!data?.user) return <Navigate to={APP_ROUTES.home} replace />
   return <Outlet />
 }
