@@ -1,0 +1,40 @@
+{
+  "name": "web-app-starter",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:api": "pnpm --filter api dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev": "pnpm run /dev:/",
+    "build:api": "pnpm --filter api build",
+    "build:web": "pnpm --filter web build",
+    "build": "pnpm run /build:/",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:seed": "pnpm --filter api db:seed",
+    "db:generate": "pnpm --filter api db:generate",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:setup": "pnpm db:up && sleep 2 && pnpm db:migrate",
+    "db:reset": "docker compose down -v && pnpm db:up && sleep 2 && pnpm db:migrate",
+    "setup": "pnpm install && pnpm db:setup"
+  },
+  "packageManager": "pnpm@8.8.0+sha1.9922e8b650d393700209ccd81e0ebdbcbe43b0d3",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.5.0",
+    "prettier": "^3.8.3",
+    "prettier-plugin-sh": "^0.18.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "typescript-eslint": "^8.59.0"
+  }
+}

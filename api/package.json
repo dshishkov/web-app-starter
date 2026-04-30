@@ -1,0 +1,33 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env --import tsx src/index.ts",
+    "build": "tsc",
+    "start": "node --env-file=.env dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "pnpm build && node --env-file=.env dist/db/migrate.js",
+    "db:migrate:runtime": "node dist/db/migrate.js",
+    "db:seed": "node --env-file=.env --import tsx src/db/seed.ts"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.6.5",
+    "@hono/node-server": "^1.14.0",
+    "@hono/zod-validator": "^0.7.6",
+    "@repo/types": "workspace:*",
+    "better-auth": "^1.6.5",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.7.0",
+    "hono-rate-limiter": "^0.5.3",
+    "postgres": "^3.4.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}

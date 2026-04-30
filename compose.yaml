@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: web-app-starter-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: web_app_starter
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: web_app_starter
+    ports:
+      - '53437:5432'
+    volumes:
+      - web-app-starter-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U web_app_starter -d web_app_starter']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  web-app-starter-postgres-data:
