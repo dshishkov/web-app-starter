@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@repo/types": "workspace:*",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.100.5",
@@ -16,6 +17,7 @@
     "better-auth": "^1.6.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-hook-form": "^7.75.0",
     "react-router-dom": "^7.14.1",
     "tailwindcss": "^4.2.2",
     "zod": "^3.24.0"

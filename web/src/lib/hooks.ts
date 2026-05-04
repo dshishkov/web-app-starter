@@ -5,21 +5,26 @@ import type {
   UserResponse,
   UsersResponse,
 } from '@repo/types'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query'
 
 import { API_ENDPOINTS } from './app-config'
 import { useSession } from './auth-client'
 
 /* ── Query keys (strongly typed tuples) ───────────────── */
 
-const queryKeys = {
+export const queryKeys = {
   me: ['me'] as const,
   users: ['users'] as const,
 } satisfies Record<string, readonly string[]>
 
 /* ── Error parsing ────────────────────────────────────── */
 
-async function parseApiError(response: Response): Promise<Error> {
+export async function parseApiError(response: Response): Promise<Error> {
   try {
     const body = (await response.json()) as ApiError
     return new Error(body.message || `Request failed (${response.status})`)
@@ -62,34 +67,63 @@ export function useUsers() {
   })
 }
 
-/* ── useUpdateNickname ────────────────────────────────── */
+/* ── useFormMutation ──────────────────────────────────── */
 
-interface UpdateNicknameVars {
-  nickname: string | null
+/**
+ * Generic mutation hook for form endpoints.
+ *
+ * Eliminates the need for per-resource custom mutation hooks.
+ * Handles fetch, JSON serialisation, error parsing, cache invalidation,
+ * and optional direct cache updates — all from a single call site.
+ *
+ * @example
+ * const updateNickname = useFormMutation<NicknameForm, CurrentUser>({
+ *   endpoint: '/api/me/nickname',
+ *   method: 'PATCH',
+ *   transformResponse: (data) => (data as { user: CurrentUser }).user,
+ *   invalidateKeys: [queryKeys.users],
+ *   setQueryData: queryKeys.me,
+ * })
+ */
+interface UseFormMutationOptions<TOutput> {
+  endpoint: string
+  method?: 'POST' | 'PATCH' | 'PUT'
+  transformResponse?: (data: unknown) => TOutput
+  invalidateKeys?: QueryKey[]
+  setQueryData?: QueryKey
 }
 
-async function updateNickname({
-  nickname,
-}: UpdateNicknameVars): Promise<CurrentUser> {
-  const response = await fetch(API_ENDPOINTS.nickname, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ nickname }),
-  })
-  if (!response.ok) throw await parseApiError(response)
-  const data = (await response.json()) as UserResponse
-  return data.user
-}
-
-export function useUpdateNickname() {
+export function useFormMutation<
+  TInput extends Record<string, unknown>,
+  TOutput = unknown,
+>({
+  endpoint,
+  method = 'POST',
+  transformResponse,
+  invalidateKeys,
+  setQueryData,
+}: UseFormMutationOptions<TOutput>) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: updateNickname,
-    onSuccess: (user) => {
-      queryClient.setQueryData<CurrentUser>(queryKeys.me, user)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.users })
+    mutationFn: async (input: TInput) => {
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(input),
+      })
+      if (!response.ok) throw await parseApiError(response)
+      const json = (await response.json()) as unknown
+      return (transformResponse ? transformResponse(json) : json) as TOutput
+    },
+    onSuccess: (data) => {
+      if (setQueryData) {
+        queryClient.setQueryData(setQueryData, data)
+      }
+      invalidateKeys?.forEach((key) => {
+        void queryClient.invalidateQueries({ queryKey: key })
+      })
     },
   })
 }

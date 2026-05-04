@@ -21,13 +21,14 @@ api/src/
   db/index.ts       # DB connection
   db/seed.ts        # Demo data seed script
   lib/auth-middleware.ts  # requireAuth guard, getAuthenticatedUser helper
+  lib/form-helpers.ts      # validatedForm() — auth + Zod validation middleware tuple
   lib/rate-limit.ts       # Rate limiter factory with swappable store (Memory -> Redis)
   routes/users.ts   # /api/users, /api/me, /api/me/nickname
 
 web/src/
   main.tsx          # App entry, BrowserRouter, QueryClientProvider, routes
   index.css         # Design system (dark + light themes, CSS custom properties)
-  components/       # Reusable UI (Shell, Sidebar, Topbar, Avatar, BarChart, etc.)
+  components/       # Reusable UI (Shell, Sidebar, Topbar, Avatar, BarChart, Form system, etc.)
   overlays/         # Modals & overlays (CommandPalette, TaskDrawer, TaskModal, TweaksPanel)
   pages/            # Route components (Home, Profile, Team, NotFound)
   lib/
@@ -37,11 +38,12 @@ web/src/
     data.ts         # Design constants (STATUSES, PRIORITIES, FONT_STACKS, demo data)
     utils.ts        # hueFor, initialsFor, gradientFor
     query-client.ts # TanStack Query client instance
-    hooks.ts        # Typed data-fetching hooks (useMe, useUsers, useUpdateNickname)
+    hooks.ts        # Typed data-fetching hooks (useMe, useUsers, useFormMutation)
 
 packages/
   types/            # Shared types consumed by both API and Web
-    src/index.ts    # PublicUser, ApiError, UsersResponse, UserResponse
+    src/index.ts    # PublicUser, CurrentUser, ApiError, UsersResponse, UserResponse
+    src/schemas.ts  # Shared Zod schemas (nicknameSchema, etc.)
 ```
 
 ## Conventions
@@ -58,7 +60,7 @@ packages/
 - **Auth**: `requireAuth` middleware on protected routes, `getAuthenticatedUser(c)` to extract user
 - **Schema**: Drizzle with `pgTable`, `text()`, `timestamp()`, `boolean()`. Indexes on FK columns
 - **Migrations**: `pnpm db:generate` to create, `pnpm db:migrate` to apply
-- **Validation**: Use Zod via `@hono/zod-validator` (`zValidator('json', schema)`)
+- **Validation**: Use Zod via `@hono/zod-validator`. For form endpoints, use `validatedForm(schema)` from `lib/form-helpers.ts` which combines `requireAuth` + `zValidator` + standard error handler into a spreadable middleware tuple. For non-form routes, use `zValidator('json', schema)` directly.
 - **Env**: Validate all env vars in `env.ts` with Zod. Call `env()` at startup for fail-fast behavior
 - **Errors**: Global `app.onError()` in `index.ts` returns consistent `{ error, message, status }` JSON
 - **Naming**: Routes live in `routes/<resource>.ts`, exported as `{ <resource> }`
@@ -71,7 +73,8 @@ packages/
 - **Context**: `useApp()` hook provides config, currentUser, userLoading, overlay state. Wraps everything inside `<Shell>`
 - **Auth client**: `useSession()` from `lib/auth-client.ts` for session state
 - **Data fetching**: Always use typed hooks from `lib/hooks.ts` (TanStack Query). Never raw `fetch` + `useEffect` in pages
-- **Hooks convention**: Each hook has a fetch function + `useQuery`/`useMutation`. Use `parseApiError()` to surface server messages. Invalidate related queries on mutation success
+- **Hooks convention**: Each query hook has a fetch function + `useQuery`. Mutations use `useFormMutation()` inline (no custom mutation hooks needed). Use `parseApiError()` to surface server messages. Invalidate related queries on mutation success
+- **Forms**: Use `react-hook-form` + `zodResolver` with Zod schemas from `@repo/types`. Wrap forms in `<Form>`, group fields with `<FormField name="..." label="...">`, render inputs as children (`<FormInput>`, `<FormSelect>`, `<FormTextarea>`, `<FormCheckbox>`). Validation runs on submit by default; errors appear automatically via `FormError`. Schemas live in `packages/types/src/schemas.ts` (shared between API and Web). See `Profile.tsx` for the canonical example.
 - **Overlays**: CommandPalette (⌘K), TaskDrawer (slide-in), TaskModal (centered), TweaksPanel (floating) — all managed via context booleans
 - **Styling**: Tailwind utility classes only. No inline styles except dynamic values (gradients, sizes). No CSS modules, no styled-components
 
@@ -132,6 +135,92 @@ When adding UI, prefer semantic tokens (`var(--text-secondary)`, `var(--bg-panel
 2. Add a `<Route>` in `web/src/main.tsx` inside the `<Route element={<Shell />}>` layout
 3. Wrap in `<RequireAuth>` if protected
 4. Add nav item in `web/src/components/Sidebar.tsx`
+
+### New form
+
+End-to-end form flow: schema → API route → page component. No custom mutation hooks needed.
+
+**Step 1 — Shared Zod schema** (`packages/types/src/schemas.ts`):
+```ts
+export const thingSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  category: z.string(),
+  notes: z.string().optional(),
+})
+export type ThingForm = z.infer<typeof thingSchema>
+```
+
+**Step 2 — Re-export** from `packages/types/src/index.ts` (add to existing exports).
+
+**Step 3 — API route** (`api/src/routes/things.ts`):
+```ts
+import { thingSchema } from '@repo/types'
+import { validatedForm } from '../lib/form-helpers.js'
+
+const app = new Hono<{ Variables: AuthVariables }>()
+
+app.post('/things', ...validatedForm(thingSchema), async (c) => {
+  const user = getAuthenticatedUser(c)
+  const input = c.req.valid('json')
+  const [created] = await db.insert(things).values({ ...input, userId: user.id }).returning()
+  return c.json({ thing: created })
+})
+```
+`validatedForm(schema)` spreads `requireAuth` + `zValidator` + standard error handler. Mount in `api/src/index.ts`: `app.route(API_PATHS.root, things)`.
+
+**Step 4 — Page component** — one hook, one form. No per-resource mutation hook:
+```tsx
+import Form from '../components/Form'
+import FormField from '../components/FormField'
+import FormInput from '../components/FormInput'
+import { useFormMutation, queryKeys } from '../lib/hooks'
+import { thingSchema, type ThingForm } from '@repo/types'
+
+const createThing = useFormMutation<ThingForm>({
+  endpoint: '/api/things',
+  method: 'POST',
+  invalidateKeys: [queryKeys.things],
+})
+
+<Form schema={thingSchema} defaultValues={{ name: '', category: '', notes: '' }}
+  onSubmit={(values) => createThing.mutate(values)}>
+  <FormField name="name" label="Name" helper="Required">
+    <FormInput placeholder="Thing name" />
+  </FormField>
+  <button type="submit" className="signal-button" disabled={createThing.isPending}>
+    Create
+  </button>
+  <FormError message={createThing.error?.message} />
+</Form>
+```
+
+`useFormMutation<TInput, TOutput>(opts)` options:
+
+| Option | Purpose |
+|---|---|
+| `endpoint` | API path to POST/PATCH/PUT to |
+| `method` | HTTP method (default `'POST'`) |
+| `transformResponse` | Unwrap API wrapper — e.g. `(data) => (data as { user: CurrentUser }).user`. When set, the unwrapped value is used for `setQueryData`. |
+| `invalidateKeys` | TanStack Query keys to invalidate on success |
+| `setQueryData` | Query key to directly set with the returned data (optimistic update) |
+
+**Step 5 — Render-prop variant** (when you need `reset`, `isDirty`, etc.):
+```tsx
+<Form schema={s} defaultValues={...} onSubmit={handleSubmit}>
+  {(methods) => (
+    <>
+      <FormField name="x" label="X"><FormInput /></FormField>
+      {methods.formState.isDirty && <button type="button" onClick={() => methods.reset()}>Reset</button>}
+      <button type="submit">Save</button>
+    </>
+  )}
+</Form>
+```
+
+**Available inputs**: `FormInput`, `FormSelect`, `FormTextarea`, `FormCheckbox`. All must be placed inside `<FormField>`.
+**Server errors**: `<FormError message={mutation.error?.message} />` outside `FormField`.
+**Rich helpers**: wrap content in `<FormHelper>…</FormHelper>`.
+**Custom onSuccess**: use TanStack Query's mutate callbacks — `mutation.mutate(values, { onSuccess: () => toast() })`.
 
 ### New component
 

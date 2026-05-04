@@ -1,34 +1,24 @@
-import { useEffect, useState } from 'react'
-import { z } from 'zod'
+import { type CurrentUser, type NicknameForm, nicknameSchema } from '@repo/types'
 
+import Form from '../components/Form'
+import FormError from '../components/FormError'
+import FormField from '../components/FormField'
+import FormInput from '../components/FormInput'
 import { Icons } from '../components/icons'
 import { useSession } from '../lib/auth-client'
-import { useMe, useUpdateNickname } from '../lib/hooks'
+import { queryKeys, useFormMutation, useMe } from '../lib/hooks'
 import { gradientFor, hueFor } from '../lib/utils'
-
-const nicknameSchema = z.object({
-  nickname: z
-    .string()
-    .min(1, 'Nickname must be at least 1 character')
-    .max(100, 'Nickname must be 100 characters or less')
-    .nullable(),
-})
-
-type NicknameForm = z.infer<typeof nicknameSchema>
 
 export default function Profile() {
   const { data: session } = useSession()
   const { data: profile, isLoading, isError } = useMe()
-  const updateNickname = useUpdateNickname()
-
-  const [nickname, setNickname] = useState('')
-  const [validationError, setValidationError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (profile) {
-      setNickname(profile.nickname ?? '')
-    }
-  }, [profile])
+  const updateNickname = useFormMutation<NicknameForm, CurrentUser>({
+    endpoint: '/api/me/nickname',
+    method: 'PATCH',
+    transformResponse: (data) => (data as { user: CurrentUser }).user,
+    invalidateKeys: [queryKeys.users],
+    setQueryData: queryKeys.me,
+  })
 
   if (isLoading) {
     return (
@@ -62,20 +52,8 @@ export default function Profile() {
   const isSaved = updateNickname.isSuccess
   const serverError = updateNickname.error?.message ?? null
 
-  const handleSave = (event: React.SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setValidationError(null)
-
-    const trimmed = nickname.trim()
-    const payload: NicknameForm = { nickname: trimmed || null }
-
-    const result = nicknameSchema.safeParse(payload)
-    if (!result.success) {
-      setValidationError(result.error.errors[0]?.message ?? 'Invalid nickname')
-      return
-    }
-
-    updateNickname.mutate(result.data)
+  const handleSave = (values: NicknameForm) => {
+    updateNickname.mutate(values)
   }
 
   return (
@@ -145,70 +123,74 @@ export default function Profile() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <form onSubmit={handleSave} className="panel-terminal overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
-            <div>
-              <div className="terminal-section-label">display handle</div>
-              <div className="mt-2 text-[13px] text-[var(--text-secondary)]">
-                Choose the name other operators see in the workspace.
-              </div>
-            </div>
-            <span className="terminal-chip-strong">public label</span>
-          </div>
+        <Form<typeof nicknameSchema>
+          schema={nicknameSchema}
+          defaultValues={{ nickname: profile.nickname ?? '' }}
+          onSubmit={handleSave}
+        >
+          {(methods) => {
+            const { formState, reset } = methods
+            const dirty = formState.isDirty
 
-          <div className="space-y-4 p-5">
-            <label className="block">
-              <div className="mb-2 text-[12px] font-medium text-[var(--text-secondary)]">
-                Nickname
-              </div>
-              <input
-                type="text"
-                value={nickname}
-                onChange={(event) => {
-                  setNickname(event.target.value)
-                  setValidationError(null)
-                  updateNickname.reset()
-                }}
-                placeholder={profile.name}
-                className="terminal-input"
-              />
-              {(validationError || serverError) && (
-                <div className="mt-2 text-[12px] text-[#ffb4b6]">
-                  {validationError || serverError}
+            return (
+              <div className="panel-terminal overflow-hidden">
+                <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
+                  <div>
+                    <div className="terminal-section-label">display handle</div>
+                    <div className="mt-2 text-[13px] text-[var(--text-secondary)]">
+                      Choose the name other operators see in the workspace.
+                    </div>
+                  </div>
+                  <span className="terminal-chip-strong">public label</span>
                 </div>
-              )}
-            </label>
 
-            <div className="flex items-center justify-between rounded-[18px] border border-[var(--border-subtle)] bg-white/[0.03] px-4 py-3 text-[12px] text-[var(--text-secondary)]">
-              <span>Blank nickname falls back to your real name.</span>
-              {isSaved && (
-                <span className="terminal-chip-strong h-7 px-2.5">saved</span>
-              )}
-            </div>
+                <div className="space-y-4 p-5">
+                  <FormField
+                    name="nickname"
+                    label="Nickname"
+                    helper="Blank nickname falls back to your real name."
+                  >
+                    <FormInput placeholder={profile.name} />
+                  </FormField>
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="signal-button disabled:opacity-50"
-              >
-                <Icons.check size={14} />
-                {isSaving ? 'Saving…' : 'Save handle'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setNickname(profile.nickname ?? '')
-                  setValidationError(null)
-                  updateNickname.reset()
-                }}
-                className="ghost-button"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
-        </form>
+                  <div className="flex items-center justify-between rounded-[18px] border border-[var(--border-subtle)] bg-white/[0.03] px-4 py-3 text-[12px] text-[var(--text-secondary)]">
+                    <span>Blank nickname falls back to your real name.</span>
+                    {isSaved && (
+                      <span className="terminal-chip-strong h-7 px-2.5">
+                        saved
+                      </span>
+                    )}
+                  </div>
+
+                  {serverError && <FormError message={serverError} />}
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="signal-button disabled:opacity-50"
+                    >
+                      <Icons.check size={14} />
+                      {isSaving ? 'Saving…' : 'Save handle'}
+                    </button>
+                    {dirty && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          reset({ nickname: profile.nickname ?? '' })
+                          updateNickname.reset()
+                        }}
+                        className="ghost-button"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          }}
+        </Form>
 
         <section className="panel-terminal overflow-hidden">
           <div className="border-b border-[var(--border-subtle)] px-5 py-4">

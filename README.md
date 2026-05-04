@@ -127,7 +127,7 @@ Open the app to see every component rendered in a live catalog:
 
 - **Typography** — headings, body, mono, section labels
 - **Buttons & Chips** — signal, ghost, icon buttons; chip variants
-- **Form Inputs** — terminal-input, terminal-select, terminal-textarea
+- **Form Inputs** — terminal-input, terminal-select, terminal-textarea, checkbox, with react-hook-form + Zod validation
 - **Key Components** — Avatar, Kbd, Sparkline, StatusPill, PriorityCell, BarChart, ProgressBar
 - **Cards & Panels** — stat cards, progress panels, activity rows
 - **Overlay Triggers** — ⌘K palette, drawer, modal, tweaks panel

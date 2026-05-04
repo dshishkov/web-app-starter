@@ -1,21 +1,14 @@
-import { zValidator } from '@hono/zod-validator'
 import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { z } from 'zod'
+
+import { nicknameSchema } from '@repo/types'
 
 import { db } from '../db/index.js'
 import { users } from '../db/schema.js'
+import { validatedForm } from '../lib/form-helpers.js'
 import type { AuthVariables } from '../lib/auth-middleware.js'
 import { getAuthenticatedUser, requireAuth } from '../lib/auth-middleware.js'
-
-export const nicknameSchema = z.object({
-  nickname: z.preprocess((value) => {
-    if (typeof value !== 'string') return value
-    const trimmed = value.trim()
-    return trimmed.length > 0 ? trimmed : null
-  }, z.string().min(1).max(100).nullable()),
-})
 
 const app = new Hono<{ Variables: AuthVariables }>()
 
@@ -59,19 +52,7 @@ app.get('/me', requireAuth, async (c) => {
 
 app.patch(
   '/me/nickname',
-  requireAuth,
-  zValidator('json', nicknameSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: 'BadRequest',
-          message: result.error.issues[0]?.message ?? 'Invalid request body',
-          status: 400,
-        },
-        400,
-      )
-    }
-  }),
+  ...validatedForm(nicknameSchema),
   async (c) => {
     const user = getAuthenticatedUser(c)
     const { nickname } = c.req.valid('json')

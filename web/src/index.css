@@ -28,6 +28,9 @@
   --color-info-text: #2563eb;
   --color-info-soft: rgba(59, 130, 246, 0.12);
 
+  --text-error: var(--color-danger-text);
+  --border-error: rgba(244, 63, 94, 0.45);
+
   --bg-base: #f4f1eb;
   --bg-surface: rgba(255, 255, 255, 0.92);
   --bg-elev: #ffffff;
@@ -74,6 +77,9 @@
   --color-warning-soft: rgba(245, 158, 11, 0.12);
   --color-info-text: #a8c7ff;
   --color-info-soft: rgba(96, 165, 250, 0.12);
+
+  --text-error: var(--color-danger-text);
+  --border-error: rgba(251, 86, 91, 0.45);
 
   --bg-base: #050507;
   --bg-surface: rgba(16, 16, 16, 0.94);
@@ -529,6 +535,39 @@ button:disabled {
   box-shadow:
     0 0 0 1px rgba(0, 217, 146, 0.22),
     0 0 0 4px rgba(0, 217, 146, 0.08);
+}
+
+.terminal-input--error,
+.terminal-select--error,
+.terminal-textarea--error {
+  border-color: var(--border-error);
+}
+
+.terminal-input--error:focus,
+.terminal-select--error:focus,
+.terminal-textarea--error:focus {
+  border-color: var(--border-error);
+  box-shadow:
+    0 0 0 1px var(--border-error),
+    0 0 0 4px rgba(251, 86, 91, 0.1);
+}
+
+.terminal-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+  accent-color: var(--color-accent);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.terminal-checkbox:hover {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .terminal-table {

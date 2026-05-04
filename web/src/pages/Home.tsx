@@ -1,7 +1,13 @@
 import { useState } from 'react'
+import { z } from 'zod'
 
 import Avatar from '../components/Avatar'
 import BarChart from '../components/BarChart'
+import Form from '../components/Form'
+import FormField from '../components/FormField'
+import FormInput from '../components/FormInput'
+import FormSelect from '../components/FormSelect'
+import FormTextarea from '../components/FormTextarea'
 import { Icons } from '../components/icons'
 import Kbd from '../components/Kbd'
 import PriorityCell from '../components/PriorityCell'
@@ -30,11 +36,20 @@ const BAR_LABELS = [
   'W12',
 ]
 
+const DEMO_FORM_SCHEMA = z.object({
+  name: z.string().min(1, 'Name is required'),
+  status: z.string(),
+  notes: z.string(),
+})
+
+type DemoForm = z.infer<typeof DEMO_FORM_SCHEMA>
+
 export default function Home() {
   const { setPaletteOpen, setTweaksOpen, toggleTheme, toggleDensity, config } =
     useApp()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [submitted, setSubmitted] = useState<DemoForm | null>(null)
 
   return (
     <div className="max-w-[1380px] space-y-8">
@@ -113,36 +128,47 @@ export default function Home() {
         <div className="border-b border-[var(--border-subtle)] px-5 py-4">
           <div className="terminal-section-label">form inputs</div>
           <div className="mt-2 text-[13px] text-[var(--text-secondary)]">
-            terminal-input, terminal-select, and terminal-textarea.
+            Powered by react-hook-form + Zod. Submit to see real-time
+            validation.
           </div>
         </div>
-        <div className="grid gap-4 p-6 md:grid-cols-2">
-          <div>
-            <div className="terminal-section-label mb-2">input</div>
-            <input
-              readOnly
-              value="Editable text field"
-              className="terminal-input"
-            />
-          </div>
-          <div>
-            <div className="terminal-section-label mb-2">select</div>
-            <select className="terminal-select">
-              {STATUSES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-2">
-            <div className="terminal-section-label mb-2">textarea</div>
-            <textarea
-              readOnly
-              value="Multi-line text area for longer content. The terminal-textarea class applies the design system styling."
-              className="terminal-textarea"
-            />
-          </div>
+        <div className="p-6">
+          <Form<typeof DEMO_FORM_SCHEMA>
+            schema={DEMO_FORM_SCHEMA}
+            defaultValues={{ name: '', status: 'active', notes: '' }}
+            onSubmit={(values) => setSubmitted(values)}
+          >
+            <div className="grid gap-5 md:grid-cols-2">
+              <FormField name="name" label="Name" helper="Enter a display name">
+                <FormInput placeholder="Task name" />
+              </FormField>
+              <FormField name="status" label="Status">
+                <FormSelect>
+                  {STATUSES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </FormSelect>
+              </FormField>
+              <div className="md:col-span-2">
+                <FormField name="notes" label="Notes" helper="Optional context for this record">
+                  <FormTextarea placeholder="Additional details…" />
+                </FormField>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button type="submit" className="signal-button">
+                <Icons.check size={14} />
+                Submit
+              </button>
+            </div>
+          </Form>
+          {submitted && (
+            <div className="mt-5 rounded-[16px] border border-[var(--border-subtle)] bg-white/[0.03] p-4 font-mono text-[12px] text-[var(--text-secondary)]">
+              {JSON.stringify(submitted, null, 2)}
+            </div>
+          )}
         </div>
       </section>
 
